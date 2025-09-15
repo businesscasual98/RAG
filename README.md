@@ -2,6 +2,8 @@
 
 Simple RAG (Retrieval-Augmented Generation) demonstration with clean architecture.
 
+*Last updated: 2025-09-15 - Testing automated requirements monitoring*
+
 ## Implementation Status
 ✅ **Backend Complete** - Node.js/Express API with LangChain, ChromaDB, and OpenRouter integration
 🔄 **Frontend Pending** - React interface for document upload and chat
