@@ -1,177 +1,113 @@
-# BAH RAG Demo - Interview Project
+# BAH RAG Demo
 
-## Project Status
-🚧 **In Development** - Planning phase complete, ready for implementation
+Simple RAG (Retrieval-Augmented Generation) demonstration with clean architecture.
 
-## Requirements Tracking
+## Implementation Status
+✅ **Backend Complete** - Node.js/Express API with LangChain, ChromaDB, and OpenRouter integration
+🔄 **Frontend Pending** - React interface for document upload and chat
+🔄 **Integration Pending** - Full-stack communication and testing
 
-### ✅ Completed Requirements
-- [x] Project documentation (CLAUDE.md)
-- [x] Development roadmap
-- [x] Requirements tracking system (this README)
+## Core Features
+- Document upload and processing
+- Chat interface with RAG-powered responses
+- Source citations and logging
+- Containerized deployment
 
-### 🔄 In Progress Requirements
-None currently in progress
+## Requirements Checklist
+- [ ] **Frontend**: React app with upload + chat interface
+- [x] **Backend**: Node.js API with document processing
+- [x] **RAG Pipeline**: Langchain integration with vector search
+- [x] **Containerization**: Docker setup for deployment
+- [x] **Logging**: Clear RAG process demonstration
 
-### ⏳ Pending Requirements
+## Quick Start
 
-#### Core Architecture
-- [ ] **Dockerized Microservices**: Container setup for each service
-- [ ] **React Frontend**: Document upload and chat interface
-- [ ] **Node.js Backend**: API services and business logic
-- [ ] **Langchain Integration**: Document processing and RAG pipeline
+### 1. Environment Setup
+```bash
+# Configure your API keys in the existing .env file
+# Add your OpenRouter API key for LLM access
+```
 
-#### RAG Functionality
-- [ ] **Document Upload**: File upload with validation
-- [ ] **Document Vectorization**: Text extraction and embedding generation
-- [ ] **Vector Storage**: Database for storing and retrieving embeddings
-- [ ] **Query Processing**: User query handling and context retrieval
-- [ ] **Response Generation**: LLM integration with citations
-- [ ] **Logging System**: Comprehensive RAG process logging
+### 2. Start Services
+```bash
+# Start ChromaDB and backend API
+docker-compose up -d
 
-#### User Interface
-- [ ] **Upload Interface**: Document upload box with progress indication
-- [ ] **Chat Interface**: Query input and response display
-- [ ] **Citation Display**: Source references and document highlights
+# Verify services are healthy
+curl http://localhost:3001/health
+```
+
+### 3. Test RAG Pipeline
+```bash
+# Upload a document
+curl -X POST -F "document=@example.pdf" \
+  http://localhost:3001/api/documents/upload
+
+# Process document for vectorization (use returned document ID)
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"documentId": "your-document-id"}' \
+  http://localhost:3001/api/chat/process
+
+# Query the document with RAG
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"query": "What is this document about?"}' \
+  http://localhost:3001/api/chat/query
+```
+
+### 4. Monitor Processing
+```bash
+# View backend logs
+docker-compose logs -f backend
+
+# Check structured logs via API
+curl http://localhost:3001/api/logs
+```
 
 ## Technology Stack
 
-### Planned Dependencies
-#### Backend Services
-- [ ] **Express.js**: Web framework for Node.js backend
-- [ ] **Langchain**: Document processing and RAG orchestration
-- [ ] **Multer**: File upload handling
-- [ ] **Winston**: Logging framework
-- [ ] **Cors**: Cross-origin resource sharing
-- [ ] **Dotenv**: Environment variable management
-
-#### LLM & Embeddings
-- [ ] **Open Router API** OR **Hugging Face Transformers**: LLM integration
-- [ ] **@langchain/openai**: OpenAI embeddings integration
-- [ ] **@langchain/community**: Additional Langchain tools
-
-#### Vector Database (Choose One)
-- [ ] **Pinecone**: Managed vector database service
-- [ ] **Chroma**: Open-source vector database
-- [ ] **Weaviate**: Vector search engine
-
-#### Frontend
-- [ ] **React**: Frontend framework
-- [ ] **Axios**: HTTP client for API calls
-- [ ] **React-Dropzone**: Drag-and-drop file upload
-- [ ] **Material-UI** OR **Tailwind CSS**: UI components and styling
-
-#### DevOps & Tools
-- [ ] **Docker**: Containerization
-- [ ] **Docker Compose**: Multi-container orchestration
-- [ ] **Nodemon**: Development server with hot reload
-- [ ] **ESLint**: Code linting
-- [ ] **Prettier**: Code formatting
+**Backend**: Node.js + Express + Langchain
+**Frontend**: React with file upload + chat UI
+**Vector DB**: Chroma (containerized)
+**LLM**: Open Router API
+**Deployment**: Docker + Docker Compose
 
 ## Project Structure
 ```
-BAH-RAG-Demo/
+RAG/
 ├── docker-compose.yml
-├── .dockerignore
-├── .gitignore
-├── README.md
-├── CLAUDE.md
-├── Roadmap.md
-├── frontend/
-│   ├── Dockerfile
-│   ├── package.json
-│   ├── src/
-│   └── public/
-├── backend/
-│   ├── Dockerfile
-│   ├── package.json
-│   ├── src/
-│   │   ├── services/
-│   │   ├── routes/
-│   │   └── utils/
-│   └── uploads/
-├── document-processor/
-│   ├── Dockerfile
-│   ├── package.json
-│   └── src/
-└── rag-engine/
-    ├── Dockerfile
-    ├── package.json
-    └── src/
+├── .env
+├── frontend/          # React app
+├── backend/           # Node.js API + RAG logic
+└── docs/             # Documentation
 ```
 
-## API Endpoints (Planned)
-### Document Service
-- `POST /api/documents/upload` - Upload document for processing
-- `GET /api/documents/:id/status` - Check processing status
-- `GET /api/documents` - List uploaded documents
+**Simplified Architecture**: Single backend service handles both API and RAG processing to reduce complexity while maintaining clear separation of concerns.
 
-### RAG Service
-- `POST /api/chat/query` - Submit query for RAG processing
-- `GET /api/chat/history` - Retrieve chat history
-- `POST /api/chat/feedback` - Submit response feedback
+## API Endpoints
+- `POST /api/upload` - Upload and process document
+- `POST /api/chat` - Submit query, get RAG response with citations
+- `GET /api/documents` - List processed documents
+- `GET /api/health` - Service health check
 
-### Health Checks
-- `GET /health` - Service health status
-- `GET /api/logs` - Retrieve processing logs (development only)
-
-## Development Commands
+## Quick Start
 ```bash
-# Start all services
-docker-compose up -d
+# Start development environment
+docker-compose up
 
 # View logs
-docker-compose logs -f [service-name]
+docker-compose logs -f
 
-# Rebuild and restart
-docker-compose down && docker-compose up --build
-
-# Run individual service
-npm run dev (in service directory)
-
-# Supabase operations (if used)
-npx supabase [command]
+# Stop services
+docker-compose down
 ```
 
-## Environment Variables Required
-```env
-# LLM Configuration
-OPENROUTER_API_KEY=your_openrouter_key
-# OR
-HUGGINGFACE_API_KEY=your_hf_key
+## Environment Setup
+Copy `.env` file and fill in your API keys:
+- `OPENROUTER_API_KEY` - For LLM responses
+- `LANGCHAIN_API_KEY` - For tracing (optional)
 
-# Vector Database
-PINECONE_API_KEY=your_pinecone_key
-PINECONE_ENVIRONMENT=your_pinecone_env
-# OR
-CHROMA_HOST=localhost
-CHROMA_PORT=8000
-
-# Application
-NODE_ENV=development
-PORT=3000
-UPLOAD_DIR=./uploads
-MAX_FILE_SIZE=10485760
-```
-
-## Success Metrics
-- [ ] Document successfully uploaded and processed
-- [ ] Vector embeddings generated and stored
-- [ ] User query returns relevant responses
-- [ ] Responses include accurate source citations
-- [ ] Complete logging trail visible
-- [ ] All services containerized and communicating
-- [ ] Frontend renders upload and chat interfaces
-
-## Demo Scenarios
-1. **Document Upload Flow**: Upload PDF/text file, show processing logs
-2. **Simple Query**: Ask question about uploaded document, show RAG retrieval
-3. **Citation Verification**: Demonstrate source attribution and accuracy
-4. **Logging Review**: Walk through logs to prove RAG implementation
-
-## Notes for Interview
-- Emphasize microservices architecture decisions
-- Explain RAG implementation choices
-- Discuss scalability considerations
-- Highlight logging strategy for transparency
-- Be prepared to explain any "vibe coding" decisions
+## Demo Flow
+1. Upload a document (PDF/TXT)
+2. Ask questions about the document
+3. Review responses with citations
+4. Check logs to see RAG process

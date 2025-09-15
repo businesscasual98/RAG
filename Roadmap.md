@@ -1,141 +1,52 @@
-# BAH RAG Demo - Development Roadmap
+# RAG Demo Implementation Plan
 
-## Phase 1: Project Setup & Infrastructure (Days 1-2)
-### Milestones
-- [ ] Initialize project structure with microservices directories
-- [ ] Set up Docker and docker-compose configuration
-- [ ] Configure development environment
-- [ ] Set up basic logging infrastructure
-- [ ] Initialize Git repository with proper .gitignore
+## Day 1: Foundation Setup
+- [ ] **Docker Setup**: Basic docker-compose with services
+- [ ] **Backend Skeleton**: Express.js API with basic routing
+- [ ] **Frontend Skeleton**: React app with upload + chat UI
+- [ ] **Environment Config**: .env setup and basic logging
 
-### Deliverables
-- Project skeleton with proper folder structure
-- Working Docker environment
-- Basic logging configuration
+## Day 2: Document Processing
+- [ ] **File Upload**: Multer integration for document handling
+- [ ] **Text Extraction**: Basic PDF/TXT processing
+- [ ] **Langchain Setup**: Document chunking and embedding
+- [ ] **Chroma Integration**: Vector storage and retrieval
 
-## Phase 2: Backend Core Services (Days 3-4)
-### Milestones
-- [ ] Document Upload Service
-  - File upload endpoint with validation
-  - File storage mechanism
-  - Basic error handling
-- [ ] Document Processing Service
-  - Langchain integration
-  - Text extraction from documents
-  - Document chunking strategy
-- [ ] Vector Database Setup
-  - Choose and configure vector database (Pinecone/Chroma/Weaviate)
-  - Embedding model integration
-  - Vector storage and retrieval
+## Day 3: RAG Implementation
+- [ ] **LLM Integration**: Open Router API setup
+- [ ] **RAG Pipeline**: Query processing with context retrieval
+- [ ] **Citations**: Source attribution and logging
+- [ ] **API Endpoints**: Upload, chat, and health endpoints
 
-### Deliverables
-- Functional document upload API
-- Document processing pipeline
-- Vector database with embeddings
+## Day 4: Frontend Integration
+- [ ] **File Upload UI**: Drag-and-drop interface
+- [ ] **Chat Interface**: Message input and response display
+- [ ] **Citations Display**: Show sources with responses
+- [ ] **API Integration**: Connect frontend to backend endpoints
 
-## Phase 3: RAG Implementation (Days 5-6)
-### Milestones
-- [ ] LLM Integration Service
-  - Open Router or Hugging Face setup
-  - API key management
-  - Response generation pipeline
-- [ ] RAG Query Engine
-  - Vector similarity search
-  - Context retrieval and ranking
-  - Citation tracking system
-- [ ] Comprehensive Logging
-  - Query processing logs
-  - Retrieval result logs
-  - Response generation logs
-  - Citation mapping logs
+## Day 5: Testing & Polish
+- [ ] **Integration Testing**: End-to-end workflow validation
+- [ ] **Error Handling**: Proper error states and messages
+- [ ] **Documentation**: Update README with demo instructions
+- [ ] **Demo Preparation**: Test scenarios and logging verification
 
-### Deliverables
-- Working RAG pipeline
-- LLM integration with proper citations
-- Detailed logging system
+## Architecture Decisions
 
-## Phase 4: Frontend Development (Days 7-8)
-### Milestones
-- [ ] React Application Setup
-  - Basic React app with routing
-  - Component structure
-  - State management setup
-- [ ] Document Upload Interface
-  - File upload component with drag-and-drop
-  - Upload progress indicators
-  - File validation and error handling
-- [ ] Chat Interface
-  - Message display component
-  - Input handling
-  - Real-time response streaming (if applicable)
-- [ ] Citation Display
-  - Source document highlighting
-  - Citation links and references
-  - Document preview functionality
+### Simplified Design Choices
+- **Single Backend Service**: Combines API and RAG logic to reduce operational complexity
+- **Chroma for Vector DB**: Self-hosted, no external dependencies or API costs
+- **Open Router for LLM**: Simple API access to multiple models
+- **Docker Compose**: Easy local development and deployment
 
-### Deliverables
-- Functional React frontend
-- Document upload and chat interfaces
-- Citation display system
+### Key Technical Considerations
+- **Logging Strategy**: Comprehensive logging at each RAG step for demo transparency
+- **Error Handling**: Graceful failures with clear user feedback
+- **Scalability**: Architecture supports future microservices split if needed
+- **Security**: Basic rate limiting and input validation
 
-## Phase 5: Integration & Testing (Days 9-10)
-### Milestones
-- [ ] Service Integration
-  - Connect frontend to backend services
-  - API error handling
-  - Loading states and user feedback
-- [ ] End-to-End Testing
-  - Document upload flow
-  - Query and response flow
-  - Citation accuracy verification
-- [ ] Docker Orchestration
-  - Multi-container deployment
-  - Service communication
-  - Environment configuration
-
-### Deliverables
-- Fully integrated application
-- Working Docker deployment
-- Tested RAG functionality
-
-## Phase 6: Demo Preparation (Days 11-12)
-### Milestones
-- [ ] Documentation Completion
-  - API documentation
-  - Deployment instructions
-  - Architecture diagrams
-- [ ] Demo Data Preparation
-  - Sample documents for upload
-  - Prepared demo queries
-  - Expected responses with citations
-- [ ] Performance Optimization
-  - Query response time optimization
-  - Error handling refinement
-  - User experience improvements
-
-### Deliverables
-- Complete documentation
-- Demo-ready application
-- Performance-optimized system
-
-## Technical Debt & Future Enhancements
-### Potential Improvements
-- [ ] Authentication and user management
-- [ ] Advanced document formats support
-- [ ] Conversation history and context
-- [ ] Advanced vector search algorithms
-- [ ] Monitoring and analytics dashboard
-- [ ] API rate limiting and caching
-- [ ] Horizontal scaling capabilities
-
-## Risk Mitigation
-### Identified Risks
-- **LLM API reliability**: Implement fallback mechanisms
-- **Vector database performance**: Monitor and optimize queries
-- **Docker complexity**: Simplify deployment with clear documentation
-- **Time constraints**: Prioritize core RAG functionality over features
-
-### Contingency Plans
-- Keep simple file-based vector storage as backup
-- Prepare simpler UI if React development takes too long
-- Have local LLM option ready if API integration fails
+## Demo Success Criteria
+1. Upload document successfully
+2. Process and embed document content
+3. Query document with relevant responses
+4. Display proper source citations
+5. Show clear logging trail of RAG process

@@ -1,0 +1,54 @@
+name: Requirements Monitor
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'CLAUDE.md'
+      - 'README.md'
+      - 'Roadmap.md'
+      - 'package.json'
+      - 'docker-compose.yml'
+      - 'src/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'CLAUDE.md'
+      - 'README.md'
+      - 'Roadmap.md'
+
+jobs:
+  requirements-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests anthropic
+
+    - name: Run requirements analysis
+      env:
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        GITHUB_SHA: ${{ github.sha }}
+        GITHUB_EVENT_NAME: ${{ github.event_name }}
+      run: |
+        python scripts/claude_requirements_monitor.py
+
+    - name: Upload analysis results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: requirements-analysis
+        path: requirements-analysis.md
+        retention-days: 30
