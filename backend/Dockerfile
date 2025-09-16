@@ -1,5 +1,5 @@
-# Use Node.js LTS version
-FROM node:18-alpine
+# Use Node.js LTS version with glibc support for chromadb and onnxruntime
+FROM node:18-bullseye-slim
 
 # Set working directory
 WORKDIR /app

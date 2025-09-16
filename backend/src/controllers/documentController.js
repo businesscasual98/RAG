@@ -43,6 +43,27 @@ const upload = multer({
 // In-memory storage for document metadata (replace with database in production)
 const documents = new Map();
 
+// Helper function to get user-friendly status descriptions
+const getStatusDescription = (status, processingStage, vectorized) => {
+  if (status === 'error') return 'Error occurred during processing';
+
+  switch (processingStage) {
+    case 'saved':
+      return 'File saved, ready for processing';
+    case 'text_extracted':
+      return 'Text extracted, preparing chunks';
+    case 'chunked':
+      return 'Text chunked, ready for vectorization';
+    case 'vectorizing':
+      return 'Creating embeddings and storing in vector database';
+    case 'completed':
+      return vectorized ? 'Fully processed and searchable' : 'Processing completed';
+    default:
+      if (vectorized) return 'Ready for queries';
+      return status === 'uploaded' ? 'Uploaded, awaiting processing' : 'Processing...';
+  }
+};
+
 const uploadDocument = async (req, res, next) => {
   try {
     if (!req.file) {
@@ -62,9 +83,13 @@ const uploadDocument = async (req, res, next) => {
       mimeType: req.file.mimetype,
       uploadedAt: new Date().toISOString(),
       status: 'uploaded',
+      processingStage: 'saved',
       processedAt: null,
       chunks: [],
-      vectorized: false
+      chunkCount: 0,
+      textLength: 0,
+      vectorized: false,
+      error: null
     };
 
     documents.set(documentId, documentMetadata);
@@ -94,15 +119,23 @@ const uploadDocument = async (req, res, next) => {
 
 const getDocuments = async (req, res, next) => {
   try {
-    const documentList = Array.from(documents.values()).map(doc => ({
-      id: doc.id,
-      originalName: doc.originalName,
-      size: doc.size,
-      uploadedAt: doc.uploadedAt,
-      status: doc.status,
-      vectorized: doc.vectorized,
-      chunks: doc.chunks.length
-    }));
+    const documentList = Array.from(documents.values()).map(doc => {
+      const statusText = getStatusDescription(doc.status, doc.processingStage, doc.vectorized);
+      return {
+        id: doc.id,
+        originalName: doc.originalName,
+        size: doc.size,
+        uploadedAt: doc.uploadedAt,
+        status: doc.status,
+        processingStage: doc.processingStage || 'saved',
+        statusDescription: statusText,
+        vectorized: doc.vectorized,
+        chunkCount: doc.chunkCount || doc.chunks.length,
+        textLength: doc.textLength || 0,
+        processedAt: doc.processedAt,
+        error: doc.error
+      };
+    });
 
     res.json({
       documents: documentList,
@@ -127,14 +160,20 @@ const getDocumentStatus = async (req, res, next) => {
       });
     }
 
+    const statusText = getStatusDescription(document.status, document.processingStage, document.vectorized);
+
     res.json({
       id: document.id,
       originalName: document.originalName,
       status: document.status,
+      processingStage: document.processingStage || 'saved',
+      statusDescription: statusText,
       uploadedAt: document.uploadedAt,
       processedAt: document.processedAt,
       vectorized: document.vectorized,
-      chunks: document.chunks.length
+      chunkCount: document.chunkCount || document.chunks.length,
+      textLength: document.textLength || 0,
+      error: document.error
     });
 
   } catch (error) {

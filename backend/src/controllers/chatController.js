@@ -79,18 +79,33 @@ class ChatController {
 
       logger.info('Starting document processing for vectorization', { documentId });
 
+      // Update status to processing
+      document.status = 'processing';
+      document.processingStage = 'text_extracted';
+      documents.set(documentId, document);
+
       // Process the document
       const processedDoc = await this.documentProcessor.processDocument(document);
+
+      // Update status after chunking
+      document.processingStage = 'chunked';
+      document.chunkCount = processedDoc.chunks.length;
+      document.textLength = processedDoc.text.length;
+      documents.set(documentId, document);
+
+      // Update status during vectorization
+      document.processingStage = 'vectorizing';
+      documents.set(documentId, document);
 
       // Add to vector store
       const vectorResult = await this.vectorStore.addDocuments(processedDoc.chunks);
 
       // Update document metadata
       document.status = 'processed';
+      document.processingStage = 'completed';
       document.processedAt = new Date().toISOString();
       document.chunks = processedDoc.chunks.map(chunk => chunk.id);
       document.vectorized = true;
-      document.textLength = processedDoc.text.length;
       documents.set(documentId, document);
 
       logger.info('Document processed and vectorized successfully', {
@@ -104,14 +119,26 @@ class ChatController {
         document: {
           id: documentId,
           status: document.status,
+          processingStage: document.processingStage,
           processedAt: document.processedAt,
-          chunkCount: document.chunks.length,
+          chunkCount: document.chunkCount,
           textLength: document.textLength,
           vectorized: document.vectorized
         }
       });
 
     } catch (error) {
+      // Update document status to show error
+      if (documentId) {
+        const document = documents.get(documentId);
+        if (document) {
+          document.status = 'error';
+          document.processingStage = 'failed';
+          document.error = error.message;
+          documents.set(documentId, document);
+        }
+      }
+
       logger.error('Error processing document:', error);
       next(error);
     }

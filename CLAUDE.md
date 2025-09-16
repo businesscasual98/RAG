@@ -82,3 +82,4 @@ Enterprise-grade RAG (Retrieval-Augmented Generation) implementation showcasing 
   - Environment-based configuration management
   - API documentation and testing
   - Security best practices implementation
+- after every task, review @README.md (instructions for running/explaining the demo) and @Roadmap.md (to-dos) and update as necessary.

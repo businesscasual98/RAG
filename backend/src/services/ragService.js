@@ -1,10 +1,18 @@
 const axios = require('axios');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const VectorStore = require('./vectorStore');
 const logger = require('../utils/logger');
 
 class RAGService {
   constructor() {
     this.vectorStore = new VectorStore();
+    this.llmProvider = process.env.LLM_PROVIDER || 'gemini';
+
+    // Gemini configuration
+    this.geminiApiKey = process.env.GEMINI_API_KEY;
+    this.genAI = this.geminiApiKey ? new GoogleGenerativeAI(this.geminiApiKey) : null;
+
+    // OpenRouter configuration (fallback)
     this.openRouterApiKey = process.env.OPENROUTER_API_KEY;
     this.openRouterBaseUrl = 'https://openrouter.ai/api/v1';
   }
@@ -13,7 +21,7 @@ class RAGService {
     try {
       const {
         maxResults = 5,
-        similarityThreshold = 0.7
+        similarityThreshold = 0.0  // Lowered for demo with simple embeddings
       } = options;
 
       logger.info('Processing RAG query', { query: query.substring(0, 100) });
@@ -89,6 +97,60 @@ class RAGService {
     try {
       const prompt = this.buildPrompt(query, context);
 
+      if (this.llmProvider === 'gemini' && this.genAI) {
+        return await this.generateGeminiResponse(prompt);
+      } else if (this.openRouterApiKey) {
+        return await this.generateOpenRouterResponse(prompt);
+      } else {
+        throw new Error('No LLM provider configured. Please set GEMINI_API_KEY or OPENROUTER_API_KEY');
+      }
+
+    } catch (error) {
+      logger.error('Error generating LLM response:', error);
+      throw error;
+    }
+  }
+
+  async generateGeminiResponse(prompt) {
+    try {
+      const model = this.genAI.getGenerativeModel({
+        model: 'gemini-1.5-flash',
+        generationConfig: {
+          maxOutputTokens: 1000,
+          temperature: 0.3,
+        }
+      });
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const answer = response.text().trim();
+
+      logger.info('Gemini response generated', {
+        model: 'gemini-1.5-flash',
+        responseLength: answer.length,
+        provider: 'gemini'
+      });
+
+      return answer;
+
+    } catch (error) {
+      logger.error('Error with Gemini API:', error);
+
+      if (error.message?.includes('API_KEY')) {
+        throw new Error('Invalid Gemini API key');
+      } else if (error.message?.includes('quota')) {
+        throw new Error('Gemini API quota exceeded. Please try again later.');
+      } else if (error.message?.includes('overloaded') || error.message?.includes('503')) {
+        // Return a helpful fallback response when Gemini is overloaded
+        return 'The AI service is currently overloaded. However, I found relevant information in the uploaded documents. Please check the source citations below for details.';
+      }
+
+      throw new Error('Failed to generate response from Gemini');
+    }
+  }
+
+  async generateOpenRouterResponse(prompt) {
+    try {
       const response = await axios.post(
         `${this.openRouterBaseUrl}/chat/completions`,
         {
@@ -118,16 +180,17 @@ class RAGService {
 
       const answer = response.data.choices[0].message.content.trim();
 
-      logger.info('LLM response generated', {
+      logger.info('OpenRouter response generated', {
         model: 'microsoft/wizardlm-2-8x22b',
         responseLength: answer.length,
-        tokensUsed: response.data.usage?.total_tokens || 'unknown'
+        tokensUsed: response.data.usage?.total_tokens || 'unknown',
+        provider: 'openrouter'
       });
 
       return answer;
 
     } catch (error) {
-      logger.error('Error generating LLM response:', error);
+      logger.error('Error with OpenRouter API:', error);
 
       if (error.response?.status === 401) {
         throw new Error('Invalid OpenRouter API key');
@@ -135,12 +198,14 @@ class RAGService {
         throw new Error('Rate limit exceeded. Please try again later.');
       }
 
-      throw new Error('Failed to generate response from LLM');
+      throw new Error('Failed to generate response from OpenRouter');
     }
   }
 
   buildPrompt(query, context) {
-    return `Context information is below:
+    return `You are a helpful assistant that answers questions based strictly on the provided context. Always cite your sources using [Source X] notation when referencing information.
+
+Context information is below:
 ---------------------
 ${context}
 ---------------------
