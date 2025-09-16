@@ -70,7 +70,7 @@ curl http://localhost:3001/api/logs
 **Backend**: Node.js + Express + Langchain
 **Frontend**: React with file upload + chat UI
 **Vector DB**: Chroma (containerized)
-**LLM**: Open Router API
+**LLM**: Gemini API
 **Deployment**: Docker + Docker Compose
 
 ## Project Structure
