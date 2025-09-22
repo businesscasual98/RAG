@@ -4,14 +4,31 @@ import DocumentList from './components/DocumentList';
 import ChatInterface from './components/ChatInterface';
 import ErrorNotification from './components/ErrorNotification';
 import { Document } from './types';
+import { processDocument } from './services/api';
 import './App.css';
 
 function App() {
   const [error, setError] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  const handleUploadSuccess = (document: Document) => {
+  const handleUploadSuccess = async (document: Document) => {
+    // Trigger refresh to show uploaded document
     setRefreshTrigger(prev => prev + 1);
+
+    // Automatically process the document for vectorization
+    try {
+      console.log('Processing document for vectorization:', document.id);
+      await processDocument(document.id);
+      console.log('Document processed successfully:', document.id);
+
+      // Trigger another refresh to update the document status
+      setTimeout(() => {
+        setRefreshTrigger(prev => prev + 1);
+      }, 500);
+    } catch (error: any) {
+      console.error('Error processing document:', error);
+      setError(error.response?.data?.error || 'Failed to process document for search');
+    }
   };
 
   const handleError = (errorMessage: string) => {

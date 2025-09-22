@@ -83,3 +83,4 @@ Enterprise-grade RAG (Retrieval-Augmented Generation) implementation showcasing 
   - API documentation and testing
   - Security best practices implementation
 - after every task, review @README.md (instructions for running/explaining the demo) and @Roadmap.md (to-dos) and update as necessary.
+- test documents for RAG troubleshooting are located in @test_docs/ any new test docs should be stored there.

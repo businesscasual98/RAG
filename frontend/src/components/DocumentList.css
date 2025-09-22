@@ -79,6 +79,13 @@
   opacity: 0.8;
 }
 
+.document-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.process-button,
 .delete-button {
   background: none;
   border: none;
@@ -88,6 +95,17 @@
   border-radius: 4px;
   opacity: 0.6;
   transition: all 0.2s ease;
+}
+
+.process-button:hover {
+  background: #e3f2fd;
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.process-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
 }
 
 .delete-button:hover {

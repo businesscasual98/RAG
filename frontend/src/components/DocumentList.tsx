@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getDocuments, deleteDocument } from '../services/api';
+import { getDocuments, deleteDocument, processDocument } from '../services/api';
 import { Document } from '../types';
 import './DocumentList.css';
 
@@ -11,6 +11,7 @@ interface DocumentListProps {
 const DocumentList: React.FC<DocumentListProps> = ({ onError, refreshTrigger }) => {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
+  const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
 
   const loadDocuments = async () => {
     try {
@@ -27,6 +28,24 @@ const DocumentList: React.FC<DocumentListProps> = ({ onError, refreshTrigger }) 
   useEffect(() => {
     loadDocuments();
   }, [refreshTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleProcess = async (documentId: string) => {
+    try {
+      setProcessingIds(prev => new Set(prev).add(documentId));
+      await processDocument(documentId);
+
+      // Reload documents to show updated status
+      await loadDocuments();
+    } catch (error: any) {
+      onError(error.response?.data?.error || 'Failed to process document');
+    } finally {
+      setProcessingIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(documentId);
+        return newSet;
+      });
+    }
+  };
 
   const handleDelete = async (documentId: string) => {
     if (!window.confirm('Are you sure you want to delete this document?')) {
@@ -111,13 +130,25 @@ const DocumentList: React.FC<DocumentListProps> = ({ onError, refreshTrigger }) 
                 <div className="document-icon">
                   {getFileIcon(doc.type)}
                 </div>
-                <button
-                  className="delete-button"
-                  onClick={() => handleDelete(doc.id)}
-                  title="Delete document"
-                >
-                  🗑️
-                </button>
+                <div className="document-actions">
+                  {!doc.vectorized && doc.status !== 'processing' && (
+                    <button
+                      className="process-button"
+                      onClick={() => handleProcess(doc.id)}
+                      disabled={processingIds.has(doc.id)}
+                      title="Process document for search"
+                    >
+                      {processingIds.has(doc.id) ? '⏳' : '⚡'}
+                    </button>
+                  )}
+                  <button
+                    className="delete-button"
+                    onClick={() => handleDelete(doc.id)}
+                    title="Delete document"
+                  >
+                    🗑️
+                  </button>
+                </div>
               </div>
 
               <div className="document-info">

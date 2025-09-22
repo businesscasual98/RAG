@@ -57,6 +57,13 @@ export const sendChatMessage = async (message: string): Promise<ChatResponse> =>
   return response.data;
 };
 
+export const processDocument = async (documentId: string): Promise<any> => {
+  const response: AxiosResponse<any> = await apiClient.post('/api/chat/process', {
+    documentId,
+  });
+  return response.data;
+};
+
 export const getDocuments = async (): Promise<Document[]> => {
   const response: AxiosResponse<{ documents: any[] }> = await apiClient.get('/api/documents');
 
