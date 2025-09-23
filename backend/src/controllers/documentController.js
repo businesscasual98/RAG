@@ -182,10 +182,105 @@ const getDocumentStatus = async (req, res, next) => {
   }
 };
 
+const deleteDocument = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const document = documents.get(id);
+
+    if (!document) {
+      return res.status(404).json({
+        error: 'Document not found',
+        message: `Document with ID ${id} does not exist`
+      });
+    }
+
+    // Delete the physical file
+    try {
+      await fs.unlink(document.path);
+      logger.info('Physical file deleted', { path: document.path });
+    } catch (fileError) {
+      logger.warn('Failed to delete physical file', {
+        path: document.path,
+        error: fileError.message
+      });
+    }
+
+    // Remove from in-memory storage
+    documents.delete(id);
+
+    logger.info('Document deleted successfully', {
+      documentId: id,
+      originalName: document.originalName
+    });
+
+    res.json({
+      message: 'Document deleted successfully',
+      documentId: id
+    });
+
+  } catch (error) {
+    logger.error('Error deleting document:', error);
+    next(error);
+  }
+};
+
+// Sync documents with ChromaDB on startup
+const syncWithVectorStore = async () => {
+  try {
+    const VectorStore = require('../services/vectorStore');
+    const vectorStore = new VectorStore();
+    await vectorStore.initialize();
+
+    // Get all documents from ChromaDB
+    const vectorDocuments = await vectorStore.getAllDocuments();
+
+    // Update in-memory document store with vector store data
+    vectorDocuments.forEach(vectorDoc => {
+      const existingDoc = documents.get(vectorDoc.documentId);
+      if (!existingDoc) {
+        // Add missing document metadata from vector store
+        const documentMetadata = {
+          id: vectorDoc.documentId,
+          originalName: vectorDoc.originalName,
+          filename: `${vectorDoc.documentId}.processed`,
+          path: null, // File may no longer exist
+          size: 0,
+          mimeType: 'application/pdf',
+          uploadedAt: new Date().toISOString(),
+          status: 'processed',
+          processingStage: 'completed',
+          processedAt: new Date().toISOString(),
+          chunks: vectorDoc.chunks,
+          chunkCount: vectorDoc.chunkCount,
+          textLength: vectorDoc.chunks.reduce((total, chunk) => total + chunk.content.length, 0),
+          vectorized: true,
+          error: null
+        };
+        documents.set(vectorDoc.documentId, documentMetadata);
+        logger.info('Restored document metadata from vector store', {
+          documentId: vectorDoc.documentId,
+          originalName: vectorDoc.originalName,
+          chunkCount: vectorDoc.chunkCount
+        });
+      }
+    });
+
+    logger.info('Document synchronization completed', {
+      vectorDocuments: vectorDocuments.length,
+      totalDocuments: documents.size
+    });
+
+  } catch (error) {
+    logger.warn('Failed to sync with vector store on startup:', error);
+  }
+};
+
 module.exports = {
   upload,
   uploadDocument,
   getDocuments,
   getDocumentStatus,
-  documents // Export for use in other modules
+  deleteDocument,
+  documents, // Export for use in other modules
+  syncWithVectorStore
 };

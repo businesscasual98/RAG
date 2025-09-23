@@ -20,16 +20,25 @@ class RAGService {
   async processQuery(query, options = {}) {
     try {
       const {
-        maxResults = 5,
-        similarityThreshold = 0.0  // Lowered for demo with simple embeddings
+        maxResults = 6,  // Conservative limit for performance
+        similarityThreshold = 0.0,  // Lowered for demo with simple embeddings
+        maxPerDocument = 2,  // Conservative limit per document
+        searchStrategy = 'balanced'  // 'balanced' or 'best_match'
       } = options;
 
-      logger.info('Processing RAG query', { query: query.substring(0, 100) });
+      logger.info('Processing RAG query', {
+        query: query.substring(0, 100),
+        maxResults,
+        maxPerDocument,
+        searchStrategy
+      });
 
-      // Step 1: Retrieve relevant documents
+      // Step 1: Retrieve relevant documents using balanced search
       const relevantDocs = await this.vectorStore.searchSimilar(query, {
         topK: maxResults,
-        threshold: similarityThreshold
+        threshold: similarityThreshold,
+        maxPerDocument: maxPerDocument,
+        strategy: searchStrategy
       });
 
       if (relevantDocs.length === 0) {

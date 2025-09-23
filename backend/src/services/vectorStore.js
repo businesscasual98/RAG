@@ -2,38 +2,55 @@ const { ChromaClient } = require('chromadb');
 
 const logger = require('../utils/logger');
 
-// Global in-memory store to persist across requests
-let globalInMemoryStore = {
-  documents: [],
-  embeddings: [],
-  ids: [],
-  initialized: false
-};
-
 class VectorStore {
   constructor() {
     this.client = null;
     this.collection = null;
     this.collectionName = process.env.CHROMA_COLLECTION || 'documents';
     this.isInitialized = false;
+    this.embeddings = null;
   }
 
   async initialize() {
     try {
-      // For demo purposes, use a simple in-memory store to avoid ChromaDB complications
-      if (!globalInMemoryStore.initialized) {
-        logger.info('Initializing simple in-memory vector store for demo');
-        globalInMemoryStore.initialized = true;
-        logger.info('Vector store initialized successfully (in-memory mode)');
-      } else {
-        logger.info('Using existing in-memory vector store', { documentsCount: globalInMemoryStore.documents.length });
+      logger.info('Initializing ChromaDB vector store');
+
+      // Initialize ChromaDB client
+      const chromaHost = process.env.CHROMA_HOST || 'localhost';
+      const chromaPort = process.env.CHROMA_PORT || '8000';
+
+      this.client = new ChromaClient({
+        path: `http://${chromaHost}:${chromaPort}`
+      });
+
+      // For now, use simple text embeddings for the demo
+      logger.info('Using simple text embeddings for ChromaDB demo');
+      this.embeddings = null; // Will use fallback method
+
+      // Get or create collection
+      try {
+        this.collection = await this.client.getCollection({ name: this.collectionName });
+        const count = await this.collection.count();
+        logger.info('Connected to existing ChromaDB collection', {
+          collection: this.collectionName,
+          documentsCount: count
+        });
+      } catch (error) {
+        logger.info('Creating new ChromaDB collection', { collection: this.collectionName });
+        this.collection = await this.client.createCollection({
+          name: this.collectionName,
+          metadata: {
+            description: 'RAG document chunks with embeddings',
+            created_at: new Date().toISOString()
+          }
+        });
       }
 
-      this.inMemoryStore = globalInMemoryStore;
       this.isInitialized = true;
+      logger.info('ChromaDB vector store initialized successfully');
 
     } catch (error) {
-      logger.error('Failed to initialize vector store:', error);
+      logger.error('Failed to initialize ChromaDB vector store:', error);
       throw error;
     }
   }
@@ -52,26 +69,34 @@ class VectorStore {
         throw new Error('No chunks provided to add to vector store');
       }
 
-      logger.info('Adding documents to vector store', { chunkCount: chunks.length });
+      logger.info('Adding documents to ChromaDB', { chunkCount: chunks.length });
 
       // Generate embeddings for all chunks
       const documents = chunks.map(chunk => chunk.content);
-      const embeddings = await this.generateEmbeddings(documents);
+      const embeddings = documents.map(doc => this.simpleTextEmbedding(doc));
 
-      // Add to in-memory store
-      chunks.forEach((chunk, index) => {
-        this.inMemoryStore.documents.push({
-          id: chunk.id,
-          content: chunk.content,
-          metadata: chunk.metadata
-        });
-        this.inMemoryStore.embeddings.push(embeddings[index]);
-        this.inMemoryStore.ids.push(chunk.id);
+      // Prepare data for ChromaDB
+      const ids = chunks.map(chunk => chunk.id);
+      const metadatas = chunks.map(chunk => ({
+        documentId: chunk.metadata.documentId,
+        originalName: chunk.metadata.originalName,
+        chunkIndex: chunk.metadata.chunkIndex,
+        addedAt: new Date().toISOString()
+      }));
+
+      // Add to ChromaDB collection
+      await this.collection.add({
+        ids,
+        embeddings,
+        documents,
+        metadatas
       });
 
-      logger.info('Documents added to vector store successfully', {
+      const totalCount = await this.collection.count();
+
+      logger.info('Documents added to ChromaDB successfully', {
         chunkCount: chunks.length,
-        totalDocuments: this.inMemoryStore.documents.length
+        totalDocuments: totalCount
       });
 
       return {
@@ -81,28 +106,19 @@ class VectorStore {
       };
 
     } catch (error) {
-      logger.error('Error adding documents to vector store:', error);
+      logger.error('Error adding documents to ChromaDB:', error);
       throw error;
     }
   }
 
-  async generateEmbeddings(texts) {
+  async generateQueryEmbedding(query) {
     try {
-      const axios = require('axios');
-      const openRouterApiKey = process.env.OPENROUTER_API_KEY;
-
-      if (!openRouterApiKey) {
-        // Use simple text-based embeddings as fallback
-        return texts.map(text => this.simpleTextEmbedding(text));
-      }
-
-      // Use OpenRouter's embedding endpoint if available
-      // For demo purposes, we'll use a simple text-based approach
-      return texts.map(text => this.simpleTextEmbedding(text));
-
+      await this.ensureInitialized();
+      const embedding = this.simpleTextEmbedding(query);
+      return embedding;
     } catch (error) {
-      logger.warn('Error generating embeddings, falling back to simple method', error);
-      return texts.map(text => this.simpleTextEmbedding(text));
+      logger.error('Error generating query embedding:', error);
+      throw error;
     }
   }
 
@@ -144,91 +160,217 @@ class VectorStore {
 
       const {
         topK = 5,
-        threshold = 0.0  // No threshold - return all documents for demo
+        threshold = 0.0,
+        maxPerDocument = 3,  // Limit chunks per document for balanced results
+        strategy = 'balanced'  // 'balanced' or 'best_match'
       } = options;
 
-      logger.info('Searching for similar documents', { query: query.substring(0, 100), topK });
+      logger.info('Searching ChromaDB for similar documents', {
+        query: query.substring(0, 100),
+        topK,
+        strategy,
+        maxPerDocument
+      });
 
-      if (this.inMemoryStore.documents.length === 0) {
-        logger.warn('No documents in vector store');
+      // Check if collection has documents
+      const count = await this.collection.count();
+      if (count === 0) {
+        logger.warn('No documents in ChromaDB collection');
         return [];
       }
 
       // Generate query embedding
-      const queryEmbedding = (await this.generateEmbeddings([query]))[0];
+      const queryEmbedding = await this.generateQueryEmbedding(query);
 
-      // Calculate cosine similarity with all stored embeddings
-      const similarities = this.inMemoryStore.embeddings.map((docEmbedding, index) => {
-        const similarity = this.cosineSimilarity(queryEmbedding, docEmbedding);
-        return {
-          index,
-          similarity,
-          document: this.inMemoryStore.documents[index]
-        };
-      });
-
-      logger.info('Similarity scores calculated', {
-        similarities: similarities.map(s => ({
-          similarity: s.similarity,
-          content: s.document.content.substring(0, 50) + '...'
-        }))
-      });
-
-      // Sort by similarity and filter by threshold
-      const filteredResults = similarities
-        .filter(item => item.similarity >= threshold)
-        .sort((a, b) => b.similarity - a.similarity)
-        .slice(0, topK);
-
-      const documents = filteredResults.map(item => ({
-        id: item.document.id,
-        content: item.document.content,
-        metadata: item.document.metadata,
-        similarity: item.similarity,
-        distance: 1 - item.similarity
-      }));
-
-      logger.info('Search completed', {
-        resultsFound: documents.length,
-        topSimilarity: documents.length > 0 ? documents[0].similarity : 0
-      });
-
-      return documents;
+      if (strategy === 'balanced') {
+        return await this.balancedSearch(queryEmbedding, topK, threshold, maxPerDocument);
+      } else {
+        return await this.bestMatchSearch(queryEmbedding, topK, threshold);
+      }
 
     } catch (error) {
-      logger.error('Error searching vector store:', error);
+      logger.error('Error searching ChromaDB:', error);
       throw error;
     }
   }
 
-  cosineSimilarity(vecA, vecB) {
-    let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
+  async balancedSearch(queryEmbedding, topK, threshold, maxPerDocument) {
+    // For large document collections, limit initial search to prevent performance issues
+    const maxInitialResults = Math.min(topK * 4, 30); // Much more conservative limit
 
-    for (let i = 0; i < vecA.length; i++) {
-      dotProduct += vecA[i] * vecB[i];
-      normA += vecA[i] * vecA[i];
-      normB += vecB[i] * vecB[i];
+    const results = await this.collection.query({
+      queryEmbeddings: [queryEmbedding],
+      nResults: maxInitialResults,
+      include: ['documents', 'metadatas', 'distances']
+    });
+
+    if (!results.documents[0] || results.documents[0].length === 0) {
+      logger.info('No similar documents found');
+      return [];
     }
 
-    const magnitude = Math.sqrt(normA) * Math.sqrt(normB);
-    return magnitude > 0 ? dotProduct / magnitude : 0;
+    // Process and group results by document
+    const documentGroups = new Map();
+    const allResults = [];
+
+    results.documents[0].forEach((content, index) => {
+      const distance = results.distances[0][index];
+      const similarity = 1 - distance;
+      const metadata = results.metadatas[0][index];
+
+      if (similarity < threshold) return;
+
+      const result = {
+        id: results.ids[0][index],
+        content,
+        metadata: {
+          documentId: metadata.documentId,
+          originalName: metadata.originalName,
+          chunkIndex: metadata.chunkIndex
+        },
+        similarity,
+        distance
+      };
+
+      allResults.push(result);
+
+      const docId = metadata.documentId;
+      if (!documentGroups.has(docId)) {
+        documentGroups.set(docId, {
+          documentId: docId,
+          documentName: metadata.originalName,
+          chunks: []
+        });
+      }
+      documentGroups.get(docId).chunks.push(result);
+    });
+
+    // Sort chunks within each document by similarity
+    documentGroups.forEach(group => {
+      group.chunks.sort((a, b) => b.similarity - a.similarity);
+    });
+
+    // Balanced selection: take top chunks from each document
+    const balancedResults = [];
+    const documentKeys = Array.from(documentGroups.keys());
+
+    logger.info('Balanced search document distribution', {
+      totalDocuments: documentKeys.length,
+      documentsFound: documentKeys.map(docId => ({
+        documentId: docId,
+        documentName: documentGroups.get(docId).documentName,
+        chunksFound: documentGroups.get(docId).chunks.length
+      }))
+    });
+
+    // Round-robin selection with limits per document
+    let roundRobinIndex = 0;
+    const documentChunkCounts = new Map();
+
+    // Initialize counters
+    documentKeys.forEach(docId => documentChunkCounts.set(docId, 0));
+
+    // First pass: ensure each document gets at least one chunk if available
+    documentKeys.forEach(docId => {
+      const group = documentGroups.get(docId);
+      if (group.chunks.length > 0 && balancedResults.length < topK) {
+        balancedResults.push(group.chunks[0]);
+        documentChunkCounts.set(docId, 1);
+      }
+    });
+
+    // Second pass: fill remaining slots with round-robin, respecting maxPerDocument
+    while (balancedResults.length < topK) {
+      let addedThisRound = false;
+
+      for (const docId of documentKeys) {
+        if (balancedResults.length >= topK) break;
+
+        const group = documentGroups.get(docId);
+        const currentCount = documentChunkCounts.get(docId);
+
+        if (currentCount < maxPerDocument && currentCount < group.chunks.length) {
+          balancedResults.push(group.chunks[currentCount]);
+          documentChunkCounts.set(docId, currentCount + 1);
+          addedThisRound = true;
+        }
+      }
+
+      // If no documents had available chunks this round, break
+      if (!addedThisRound) break;
+    }
+
+    // Sort final results by similarity while maintaining some document diversity
+    const finalResults = balancedResults.sort((a, b) => b.similarity - a.similarity);
+
+    logger.info('Balanced ChromaDB search completed', {
+      resultsFound: finalResults.length,
+      documentsRepresented: new Set(finalResults.map(r => r.metadata.documentId)).size,
+      topSimilarity: finalResults.length > 0 ? finalResults[0].similarity : 0,
+      distributionByDoc: Array.from(documentChunkCounts.entries()).map(([docId, count]) => ({
+        documentName: documentGroups.get(docId).documentName,
+        chunksIncluded: count
+      }))
+    });
+
+    return finalResults;
   }
+
+  async bestMatchSearch(queryEmbedding, topK, threshold) {
+    // Original search behavior for when balanced results aren't needed
+    const results = await this.collection.query({
+      queryEmbeddings: [queryEmbedding],
+      nResults: topK,
+      include: ['documents', 'metadatas', 'distances']
+    });
+
+    if (!results.documents[0] || results.documents[0].length === 0) {
+      logger.info('No similar documents found');
+      return [];
+    }
+
+    const documents = results.documents[0].map((content, index) => {
+      const distance = results.distances[0][index];
+      const similarity = 1 - distance;
+      const metadata = results.metadatas[0][index];
+
+      return {
+        id: results.ids[0][index],
+        content,
+        metadata: {
+          documentId: metadata.documentId,
+          originalName: metadata.originalName,
+          chunkIndex: metadata.chunkIndex
+        },
+        similarity,
+        distance
+      };
+    })
+    .filter(doc => doc.similarity >= threshold)
+    .sort((a, b) => b.similarity - a.similarity);
+
+    logger.info('Best match ChromaDB search completed', {
+      resultsFound: documents.length,
+      topSimilarity: documents.length > 0 ? documents[0].similarity : 0
+    });
+
+    return documents;
+  }
+
 
   async deleteDocument(documentId) {
     try {
       await this.ensureInitialized();
 
-      // Delete all chunks for this document
+      // Delete all chunks for this document from ChromaDB
       await this.collection.delete({
         where: { documentId }
       });
 
-      logger.info('Document deleted from vector store', { documentId });
+      logger.info('Document deleted from ChromaDB', { documentId });
 
     } catch (error) {
-      logger.error('Error deleting document from vector store:', error);
+      logger.error('Error deleting document from ChromaDB:', error);
       throw error;
     }
   }
@@ -237,16 +379,68 @@ class VectorStore {
     try {
       await this.ensureInitialized();
 
-      const count = this.inMemoryStore.documents.length;
+      const count = await this.collection.count();
+      const collectionData = await this.collection.get({ limit: 1 });
 
       return {
-        name: 'in-memory-store',
+        name: this.collectionName,
         count,
-        initialized: this.isInitialized
+        initialized: this.isInitialized,
+        hasDocuments: count > 0,
+        sampleDocument: collectionData.documents.length > 0 ? {
+          id: collectionData.ids[0],
+          metadata: collectionData.metadatas[0]
+        } : null
       };
 
     } catch (error) {
-      logger.error('Error getting collection info:', error);
+      logger.error('Error getting ChromaDB collection info:', error);
+      throw error;
+    }
+  }
+
+  async getAllDocuments() {
+    try {
+      await this.ensureInitialized();
+
+      const count = await this.collection.count();
+      if (count === 0) {
+        return [];
+      }
+
+      // Get all documents from ChromaDB
+      const results = await this.collection.get({
+        include: ['documents', 'metadatas']
+      });
+
+      // Group chunks by document ID
+      const documentMap = new Map();
+
+      results.ids.forEach((id, index) => {
+        const metadata = results.metadatas[index];
+        const documentId = metadata.documentId;
+
+        if (!documentMap.has(documentId)) {
+          documentMap.set(documentId, {
+            documentId,
+            originalName: metadata.originalName,
+            chunks: [],
+            chunkCount: 0
+          });
+        }
+
+        documentMap.get(documentId).chunks.push({
+          id,
+          content: results.documents[index],
+          chunkIndex: metadata.chunkIndex
+        });
+        documentMap.get(documentId).chunkCount++;
+      });
+
+      return Array.from(documentMap.values());
+
+    } catch (error) {
+      logger.error('Error getting all documents from ChromaDB:', error);
       throw error;
     }
   }

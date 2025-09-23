@@ -8,11 +8,10 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - chroma_data:/chroma/chroma
+      - chroma_data:/data
     environment:
       - CHROMA_HOST=0.0.0.0
       - CHROMA_PORT=8000
-      - PERSIST_DIRECTORY=/chroma/chroma
     networks:
       - rag-network
     healthcheck:

@@ -68,10 +68,18 @@ app.use('*', (req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   logger.info(`RAG Backend server running on port ${PORT}`);
   logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
   logger.info(`Health check: http://localhost:${PORT}/health`);
+
+  // Sync documents with ChromaDB on startup
+  try {
+    const { syncWithVectorStore } = require('./controllers/documentController');
+    await syncWithVectorStore();
+  } catch (error) {
+    logger.warn('Failed to sync with vector store on startup:', error);
+  }
 });
 
 // Graceful shutdown

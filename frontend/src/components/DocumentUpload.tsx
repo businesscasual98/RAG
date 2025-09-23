@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { uploadDocument } from '../services/api';
 import { Document, UploadResponse } from '../types';
 import './DocumentUpload.css';
@@ -11,6 +11,7 @@ interface DocumentUploadProps {
 const DocumentUpload: React.FC<DocumentUploadProps> = ({ onUploadSuccess, onUploadError }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const ALLOWED_TYPES = [
     'application/pdf',
@@ -83,6 +84,12 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({ onUploadSuccess, onUplo
     }
   };
 
+  const handleClick = () => {
+    if (!isUploading && fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
   return (
     <div className="document-upload">
       <div
@@ -91,6 +98,7 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({ onUploadSuccess, onUplo
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
         onDrop={handleDrop}
+        onClick={handleClick}
       >
         {isUploading ? (
           <div className="upload-loading">
@@ -105,6 +113,7 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({ onUploadSuccess, onUplo
               <label className="upload-link">
                 browse files
                 <input
+                  ref={fileInputRef}
                   type="file"
                   accept=".pdf,.doc,.docx,.txt"
                   onChange={handleInputChange}

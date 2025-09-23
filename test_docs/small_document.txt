@@ -1,0 +1,27 @@
+Small Document: Equipment Standards Guide
+
+GARMIN DEVICE SPECIFICATIONS
+Garmin GPS devices require specific performance standards for optimal operation. These devices must meet accuracy requirements of within 3 meters under open sky conditions.
+
+TECHNICAL REQUIREMENTS
+The equipment standards include:
+- Signal acquisition time under 30 seconds
+- Battery life minimum 8 hours continuous operation
+- Operating temperature range -20°C to 60°C
+- Water resistance rating IPX7 or higher
+
+CALIBRATION PROCEDURES
+Regular calibration ensures device accuracy:
+- Monthly GPS accuracy verification
+- Compass calibration before each mission
+- Altitude sensor adjustment for local conditions
+- Software updates as recommended by manufacturer
+
+MAINTENANCE SCHEDULE
+Equipment maintenance requirements:
+- Weekly visual inspection for damage
+- Monthly battery and charging system check
+- Quarterly firmware updates
+- Annual professional service and certification
+
+These standards ensure reliable operation in all operational environments and maintain accuracy for critical navigation tasks.
